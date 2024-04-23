@@ -11,13 +11,23 @@ type Storage interface {
 type StorageType string
 
 const (
-	S3 StorageType = "S3"
+	TypeS3  StorageType = "S3"
+	TypeGCP StorageType = "GCP"
 )
 
-func NewStorage(st StorageType) Storage {
-	switch st {
-	case S3:
+type Options struct {
+	StorageType StorageType
+	ProjectId   string
+	Location    string
+}
+
+func NewStorage(opts Options) Storage {
+	switch opts.StorageType {
+	case TypeS3:
+		// AWS Location/Region retrieved from ~/.aws/config or env var AWS_DEFAULT_REGION
 		return NewS3Client()
+	case TypeGCP:
+		return NewGCPClient(opts.ProjectId).WithDefaultLocation(opts.Location)
 	default:
 		return nil
 	}

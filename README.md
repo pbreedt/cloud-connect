@@ -36,7 +36,7 @@ Like with all Go modules, you can simply "go get" it.
 	4. export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa-json.json
 
 ### Azure authentication
-	See: [env setup](https://github.com/azure-samples/azure-sdk-for-go-samples#prerequisites)  
+  See [env setup](https://github.com/azure-samples/azure-sdk-for-go-samples#prerequisites)
 
 	1. Create Subscription, get AZURE_SUBSCRIPTION_ID
 	2. Create Storage Account

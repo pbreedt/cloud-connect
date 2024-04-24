@@ -1,6 +1,8 @@
 package storage
 
 import (
+	"log"
+
 	"github.com/pbreedt/cloud-connect/storage/aws"
 	"github.com/pbreedt/cloud-connect/storage/azure"
 	"github.com/pbreedt/cloud-connect/storage/gcp"
@@ -26,20 +28,31 @@ const (
 )
 
 type Options struct {
-	StorageType StorageType
-	ProjectId   string
-	Location    string
+	StorageType          StorageType
+	GCP_ProjectId        string
+	Azure_StorageAccount string
+	Location             string
 }
 
 func NewStorage(opts Options) Storage {
+	if opts.StorageType == "" {
+		log.Fatalf("Options.StorageType must be provided")
+	}
+
 	switch opts.StorageType {
 	case TypeS3:
 		// AWS Location/Region retrieved from ~/.aws/config or env var AWS_DEFAULT_REGION
 		return aws.NewS3Client()
 	case TypeGCP:
-		return gcp.NewCloudStorageClient(opts.ProjectId).WithDefaultLocation(opts.Location)
+		if opts.GCP_ProjectId == "" {
+			log.Fatalf("Options.GCP_ProjectId must be provided")
+		}
+		return gcp.NewCloudStorageClient(opts.GCP_ProjectId)
 	case TypeAzure:
-		return azure.NewBlobStorageClient(opts.ProjectId)
+		if opts.Azure_StorageAccount == "" {
+			log.Fatalf("Options.Azure_StorageAccount must be provided")
+		}
+		return azure.NewBlobStorageClient(opts.Azure_StorageAccount)
 	default:
 		return nil
 	}

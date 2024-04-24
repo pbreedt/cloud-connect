@@ -1,6 +1,7 @@
 package azure
 
 import (
+	"os"
 	"testing"
 
 	"github.com/google/uuid"
@@ -16,7 +17,7 @@ func init() {
 	azStorageAccount = "cs210032003763ea5a8"
 }
 
-func TestAZCreateBucket(t *testing.T) {
+func TestCreateBucket(t *testing.T) {
 	az := NewBlobStorageClient(azStorageAccount)
 	t.Logf("Blob storage client created: '%v'\n", az)
 	err := az.CreateBucket(azBucketName)
@@ -25,39 +26,45 @@ func TestAZCreateBucket(t *testing.T) {
 	}
 }
 
-// func TestGCPUpload(t *testing.T) {
-// 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
+func TestUpload(t *testing.T) {
+	gcp := NewBlobStorageClient(azStorageAccount)
 
-// 	err := gcp.StoreData(gcpBucketName, "test-object", "../test_data/testfile.txt")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }
+	err := gcp.StoreData(azBucketName, "test-object", "../test_data/testfile.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
-// func TestGCPDownload(t *testing.T) {
-// 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
+func TestListBucketContent(t *testing.T) {
+	az := NewBlobStorageClient(azStorageAccount)
+	t.Logf("Content of bucket: '%s'\n", azBucketName)
+	az.ListBucketContents(azBucketName)
+}
 
-// 	err := gcp.RetrieveData(gcpBucketName, "test-object", "../test_data/gcp_testfile_download.txt")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
+func TestDownload(t *testing.T) {
+	gcp := NewBlobStorageClient(azStorageAccount)
 
-// 	err = os.Remove("../test_data/gcp_testfile_download.txt")
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }
+	err := gcp.RetrieveData(azBucketName, "test-object", "../test_data/az_testfile_download.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-// func TestGCPDelete(t *testing.T) {
-// 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
+	err = os.Remove("../test_data/az_testfile_download.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
-// 	err := gcp.DeleteData(gcpBucketName, []string{"test-object"})
-// 	if err != nil {
-// 		t.Fatal(err)
-// 	}
-// }
+func TestDelete(t *testing.T) {
+	gcp := NewBlobStorageClient(azStorageAccount)
 
-func TestAZDeleteBucket(t *testing.T) {
+	err := gcp.DeleteData(azBucketName, []string{"test-object"})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDeleteBucket(t *testing.T) {
 	az := NewBlobStorageClient(azStorageAccount)
 	t.Logf("Blob storage client created: '%v'\n", az)
 	err := az.DeleteBucket(azBucketName)
@@ -66,14 +73,8 @@ func TestAZDeleteBucket(t *testing.T) {
 	}
 }
 
-// func TestGCPList(t *testing.T) {
-// 	gcp := NewGCPClient()
-// 	t.Logf("Bucket name: '%v'\n", gcpBucketName)
-// 	gcp.ListBucketContents(gcpBucketName)
-// }
-
-// func TestGCPListBuckets(t *testing.T) {
-// 	gcp := NewGCPClient()
-// 	t.Logf("Bucket name: '%v'\n", gcpBucketName)
-// 	gcp.ListBuckets("the-cloud-bootcamp-pfb")
+// func TestListBuckets(t *testing.T) {
+// 	az := NewBlobStorageClient(azStorageAccount)
+// 	t.Logf("Buckets list :) %s\n", azBucketName)
+// 	az.ListBuckets(azStorageAccount)
 // }

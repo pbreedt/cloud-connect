@@ -3,7 +3,10 @@ package azure
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
+	"os"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -87,69 +90,82 @@ func (az *BlobStorageClient) DeleteBucket(bucketName string) error {
 	return err
 }
 
-// // For large files, use github.com/aws/aws-sdk-go-v2/feature/s3/manager.NewUploader
-// func (az *BlobStorageClient) StoreData(bucketName string, objectKey string, fileName string) error {
-// 	file, err := os.Open(fileName)
-// 	if err != nil {
-// 		log.Printf("Couldn't open file %v to upload. Error: %v\n", fileName, err)
-// 	} else {
-// 		defer file.Close()
-// 		_, err = az.Client.PutObject(context.TODO(), &s3.PutObjectInput{
-// 			Bucket: aws.String(bucketName),
-// 			Key:    aws.String(objectKey),
-// 			Body:   file,
-// 		})
-// 		if err != nil {
-// 			log.Printf("Couldn't upload file %v to %v:%v. Error: %v\n",
-// 				fileName, bucketName, objectKey, err)
-// 		}
-// 	}
+// For large files, use github.com/aws/aws-sdk-go-v2/feature/s3/manager.NewUploader
+func (az *BlobStorageClient) StoreData(bucketName string, objectKey string, fileName string) error {
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		log.Printf("Couldn't open file %v to upload. Error: %v\n", fileName, err)
+	} else {
+		_, err = az.Client.UploadBuffer(context.Background(), bucketName, objectKey, data, nil) // &azblob.UploadBufferOptions{}
+		if err != nil {
+			log.Printf("Couldn't upload file %v to %v:%v. Error: %v\n",
+				fileName, bucketName, objectKey, err)
+		}
+	}
 
-// 	return err
-// }
+	return err
+}
 
-// // For large files, use github.com/aws/aws-sdk-go-v2/feature/s3/manager.NewDownloader
-// // TODO: return []byte instead if writing to file
-// func (az *BlobStorageClient) RetrieveData(bucketName string, objectKey string, fileName string) error {
-// 	result, err := az.Client.GetObject(context.TODO(), &s3.GetObjectInput{
-// 		Bucket: aws.String(bucketName),
-// 		Key:    aws.String(objectKey),
-// 	})
-// 	if err != nil {
-// 		log.Printf("Couldn't get object %v:%v. Error: %v\n", bucketName, objectKey, err)
-// 		return err
-// 	}
-// 	defer result.Body.Close()
-// 	file, err := os.Create(fileName)
-// 	if err != nil {
-// 		log.Printf("Couldn't create file %v. Error: %v\n", fileName, err)
-// 		return err
-// 	}
-// 	defer file.Close()
-// 	body, err := io.ReadAll(result.Body)
-// 	if err != nil {
-// 		log.Printf("Couldn't read object body from %v. Error: %v\n", objectKey, err)
-// 	}
-// 	_, err = file.Write(body)
-// 	return err
-// }
+// TODO: return []byte instead if writing to file
+func (az *BlobStorageClient) RetrieveData(bucketName string, objectKey string, fileName string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	defer cancel()
 
-// func (az *BlobStorageClient) DeleteData(bucketName string, objectKeys []string) error {
-// 	var objectIds []types.ObjectIdentifier
-// 	for _, key := range objectKeys {
-// 		objectIds = append(objectIds, types.ObjectIdentifier{Key: aws.String(key)})
-// 	}
-// 	_, err := az.Client.DeleteObjects(context.TODO(), &s3.DeleteObjectsInput{
-// 		Bucket: aws.String(bucketName),
-// 		Delete: &types.Delete{Objects: objectIds},
-// 	})
-// 	if err != nil {
-// 		log.Printf("Couldn't delete objects from bucket %v. Error: %v\n", bucketName, err)
-// 		// } else {
-// 		// 	log.Printf("Deleted %v objects.\n", len(output.Deleted))
-// 	}
-// 	return err
-// }
+	ds, err := az.Client.DownloadStream(ctx, bucketName, objectKey, nil)
+	if err != nil {
+		return fmt.Errorf("DownloadStream(%s): %w", objectKey, err)
+	}
+
+	retryReader := ds.NewRetryReader(ctx, &azblob.RetryReaderOptions{})
+	err = retryReader.Close()
+	if err != nil {
+		return fmt.Errorf("DownloadStream(%s).NewRetryReader(): %w", objectKey, err)
+	}
+
+	file, err := os.Create(fileName)
+	if err != nil {
+		log.Printf("Couldn't create file %v. Error: %v\n", fileName, err)
+		return err
+	}
+	defer file.Close()
+	body, err := io.ReadAll(retryReader)
+	if err != nil {
+		log.Printf("Couldn't read object body from %v. Error: %v\n", objectKey, err)
+	}
+	_, err = file.Write(body)
+	return err
+}
+
+func (az *BlobStorageClient) DeleteData(bucketName string, objectKeys []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
+	defer cancel()
+	for _, objectKey := range objectKeys {
+		_, err := az.Client.DeleteBlob(ctx, bucketName, objectKey, nil)
+		if err != nil {
+			return fmt.Errorf("DeleteBlob(%s): %w", objectKey, err)
+		}
+		log.Printf("Data deleted from %s/%s\n", bucketName, objectKey)
+	}
+	return nil
+}
+
+func (az *BlobStorageClient) ListBucketContents(bucketName string) {
+	// List the blobs in the container
+	pager := az.Client.NewListBlobsFlatPager(bucketName, &azblob.ListBlobsFlatOptions{
+		Include: azblob.ListBlobsInclude{Snapshots: true, Versions: true},
+	})
+
+	for pager.More() {
+		resp, err := pager.NextPage(context.TODO())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, blob := range resp.Segment.BlobItems {
+			fmt.Println(*blob.Name)
+		}
+	}
+}
 
 /*
 long running process:

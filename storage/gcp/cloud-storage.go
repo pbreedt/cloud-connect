@@ -1,4 +1,4 @@
-package storage
+package gcp
 
 import (
 	"context"
@@ -12,37 +12,42 @@ import (
 )
 
 /*
+see:
+	https://cloud.google.com/docs
+	https://cloud.google.com/storage/docs/quickstart
+
+auth:
 	1. Login to GCP console
 	2. Create service account
 	3. Create service account key (storing key in /path/to/sa-json.json file)
 	4. export GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa-json.json
 */
 
-type GCPClient struct {
+type CloudStorageClient struct {
 	Client          *storage.Client
 	projectId       string
 	defaultLocation string
 }
 
-func NewGCPClient(defaultProjectId string) *GCPClient {
+func NewCloudStorageClient(defaultProjectId string) *CloudStorageClient {
 	client, err := storage.NewClient(context.Background())
 
 	if err != nil {
 		log.Fatal(err)
 	}
-	return &GCPClient{
+	return &CloudStorageClient{
 		Client:          client,
 		projectId:       defaultProjectId,
 		defaultLocation: "US-CENTRAL1",
 	}
 }
 
-func (gcpClient *GCPClient) WithDefaultLocation(location string) *GCPClient {
+func (gcpClient *CloudStorageClient) WithDefaultLocation(location string) *CloudStorageClient {
 	gcpClient.defaultLocation = location
 	return gcpClient
 }
 
-func (gcpClient *GCPClient) CreateBucket(bucketName string) error {
+func (gcpClient *CloudStorageClient) CreateBucket(bucketName string) error {
 	bkt := gcpClient.Client.Bucket(bucketName)
 	attrLocation := &storage.BucketAttrs{
 		Location: gcpClient.defaultLocation,
@@ -56,7 +61,7 @@ func (gcpClient *GCPClient) CreateBucket(bucketName string) error {
 	return nil
 }
 
-func (gcpClient *GCPClient) DeleteBucket(bucketName string) error {
+func (gcpClient *CloudStorageClient) DeleteBucket(bucketName string) error {
 	bkt := gcpClient.Client.Bucket(bucketName)
 	err := bkt.Delete(context.Background())
 	if err != nil {
@@ -68,7 +73,7 @@ func (gcpClient *GCPClient) DeleteBucket(bucketName string) error {
 }
 
 // uploadFile uploads an object.
-func (gcpClient *GCPClient) StoreData(bucketName string, objectKey string, fileName string) error {
+func (gcpClient *CloudStorageClient) StoreData(bucketName string, objectKey string, fileName string) error {
 	// Open local file.
 	f, err := os.Open(fileName)
 	if err != nil {
@@ -109,7 +114,7 @@ func (gcpClient *GCPClient) StoreData(bucketName string, objectKey string, fileN
 }
 
 // downloadFile downloads an object to a file.
-func (gcpClient *GCPClient) RetrieveData(bucketName string, objectKey string, fileName string) error {
+func (gcpClient *CloudStorageClient) RetrieveData(bucketName string, objectKey string, fileName string) error {
 	ctx := context.Background()
 	// client, err := storage.NewClient(ctx)
 	// if err != nil {
@@ -145,7 +150,7 @@ func (gcpClient *GCPClient) RetrieveData(bucketName string, objectKey string, fi
 
 }
 
-func (gcpClient *GCPClient) DeleteData(bucketName string, objectKeys []string) error {
+func (gcpClient *CloudStorageClient) DeleteData(bucketName string, objectKeys []string) error {
 	for _, objectKey := range objectKeys {
 		err := gcpClient.Client.Bucket(bucketName).Object(objectKey).Delete(context.Background())
 		if err != nil {

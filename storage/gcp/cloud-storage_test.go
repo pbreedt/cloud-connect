@@ -1,4 +1,4 @@
-package storage
+package gcp
 
 import (
 	"os"
@@ -18,7 +18,7 @@ func init() {
 }
 
 func TestGCPCreateBucket(t *testing.T) {
-	gcp := NewGCPClient(gcpDefaultProjectId)
+	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.CreateBucket(gcpBucketName)
 	if err != nil {
@@ -27,30 +27,30 @@ func TestGCPCreateBucket(t *testing.T) {
 }
 
 func TestGCPUpload(t *testing.T) {
-	gcp := NewGCPClient(gcpDefaultProjectId)
+	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
-	err := gcp.StoreData(gcpBucketName, "test-object", "./test_data/testfile.txt")
+	err := gcp.StoreData(gcpBucketName, "test-object", "../test_data/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestGCPDownload(t *testing.T) {
-	gcp := NewGCPClient(gcpDefaultProjectId)
+	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
-	err := gcp.RetrieveData(gcpBucketName, "test-object", "./test_data/gcp_testfile_download.txt")
+	err := gcp.RetrieveData(gcpBucketName, "test-object", "../test_data/gcp_testfile_download.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.Remove("./test_data/gcp_testfile_download.txt")
+	err = os.Remove("../test_data/gcp_testfile_download.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 func TestGCPDelete(t *testing.T) {
-	gcp := NewGCPClient(gcpDefaultProjectId)
+	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.DeleteData(gcpBucketName, []string{"test-object"})
 	if err != nil {
@@ -59,7 +59,7 @@ func TestGCPDelete(t *testing.T) {
 }
 
 func TestGCPDeleteBucket(t *testing.T) {
-	gcp := NewGCPClient(gcpDefaultProjectId)
+	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.DeleteBucket(gcpBucketName)
 	if err != nil {

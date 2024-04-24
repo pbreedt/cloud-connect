@@ -1,4 +1,4 @@
-package storage
+package aws
 
 import (
 	"context"
@@ -13,13 +13,18 @@ import (
 )
 
 /*
-see: https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/gov2
+see:
 
-have credentials in ~/.aws/credentials
--- or --
-export AWS_ACCESS_KEY_ID=xxx
-export AWS_SECRET_ACCESS_KEY=xxx
-export AWS_DEFAULT_REGION=us-east-1
+	https://github.com/awsdocs/aws-doc-sdk-examples/tree/main/gov2
+	https://aws.github.io/aws-sdk-go-v2/docs/getting-started/
+
+auth:
+
+	have credentials in ~/.aws/credentials
+	-- or --
+	export AWS_ACCESS_KEY_ID=xxx
+	export AWS_SECRET_ACCESS_KEY=xxx
+	export AWS_DEFAULT_REGION=us-east-1
 */
 type S3Client struct {
 	Client *s3.Client

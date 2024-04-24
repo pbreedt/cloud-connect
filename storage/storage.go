@@ -1,5 +1,10 @@
 package storage
 
+import (
+	"github.com/pbreedt/cloud-connect/storage/aws"
+	"github.com/pbreedt/cloud-connect/storage/gcp"
+)
+
 type Storage interface {
 	CreateBucket(bucketName string) error
 	DeleteBucket(bucketName string) error
@@ -11,8 +16,9 @@ type Storage interface {
 type StorageType string
 
 const (
-	TypeS3  StorageType = "S3"
-	TypeGCP StorageType = "GCP"
+	TypeS3    StorageType = "S3"
+	TypeGCP   StorageType = "GCP"
+	TypeAzure StorageType = "AZURE"
 )
 
 type Options struct {
@@ -25,9 +31,11 @@ func NewStorage(opts Options) Storage {
 	switch opts.StorageType {
 	case TypeS3:
 		// AWS Location/Region retrieved from ~/.aws/config or env var AWS_DEFAULT_REGION
-		return NewS3Client()
+		return aws.NewS3Client()
 	case TypeGCP:
-		return NewGCPClient(opts.ProjectId).WithDefaultLocation(opts.Location)
+		return gcp.NewCloudStorageClient(opts.ProjectId).WithDefaultLocation(opts.Location)
+	// case TypeAzure:
+	// 	return azure.NewBlobStorageClient(opts.ProjectId)
 	default:
 		return nil
 	}

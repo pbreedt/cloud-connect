@@ -1,4 +1,4 @@
-package storage
+package aws
 
 import (
 	"os"
@@ -25,7 +25,7 @@ func TestS3CreateBucket(t *testing.T) {
 func TestS3Upload(t *testing.T) {
 	s3c := NewS3Client()
 
-	err := s3c.StoreData(awsBucketName, "test-object", "./test_data/testfile.txt")
+	err := s3c.StoreData(awsBucketName, "test-object", "../test_data/testfile.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,12 +34,12 @@ func TestS3Upload(t *testing.T) {
 func TestS3Download(t *testing.T) {
 	s3c := NewS3Client()
 
-	err := s3c.RetrieveData(awsBucketName, "test-object", "./test_data/aws_testfile_download.txt")
+	err := s3c.RetrieveData(awsBucketName, "test-object", "../test_data/aws_testfile_download.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = os.Remove("./test_data/aws_testfile_download.txt")
+	err = os.Remove("../test_data/aws_testfile_download.txt")
 	if err != nil {
 		t.Fatal(err)
 	}

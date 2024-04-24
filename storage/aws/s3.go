@@ -2,7 +2,6 @@ package aws
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -25,124 +24,124 @@ auth:
 	-- or --
 	export AWS_ACCESS_KEY_ID=xxx
 	export AWS_SECRET_ACCESS_KEY=xxx
-	export AWS_DEFAULT_REGION=us-east-1
+	export AWS_DEFAULT_REGION=us-east-2
+	us-east-1 not supported? see github.com/aws/aws-sdk-go-v2/service/s3/types.BucketLocationConstraint
 */
+
 type S3Client struct {
-	Client *s3.Client
+	Client   *s3.Client
+	location string
 }
 
 func NewS3Client() *S3Client {
-	// config.NewEnvConfig()
 	cfg, err := config.LoadDefaultConfig(context.TODO())
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Create an Amazon S3 service client
-	return &S3Client{Client: s3.NewFromConfig(cfg)}
+	return &S3Client{
+		Client:   s3.NewFromConfig(cfg),
+		location: cfg.Region,
+	}
+}
+
+func (s3Client *S3Client) WithDefaultLocation(location string) *S3Client {
+	s3Client.location = location
+	return s3Client
 }
 
 func (s3Client *S3Client) CreateBucket(bucketName string) error {
 	_, err := s3Client.Client.CreateBucket(context.TODO(), &s3.CreateBucketInput{
 		Bucket: aws.String(bucketName),
-		// CreateBucketConfiguration: &types.CreateBucketConfiguration{
-		// 	LocationConstraint: types.BucketLocationConstraint(region),
-		// },
+		CreateBucketConfiguration: &types.CreateBucketConfiguration{
+			LocationConstraint: types.BucketLocationConstraint(s3Client.location),
+		},
 	})
-	if err != nil {
-		log.Printf("Couldn't create bucket %v in Region %v. Error: %v\n",
-			bucketName, s3Client.Client.Options().Region, err)
-	}
 	return err
 }
 
-func (s3Client *S3Client) ListBuckets() {
+func (s3Client *S3Client) ListBuckets() ([]string, error) {
+	buckets := []string{}
+
 	result, err := s3Client.Client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
 	if err != nil {
-		fmt.Printf("Couldn't list buckets for your account. Error: %v\n", err)
-		return
+		return buckets, err
 	}
-	if len(result.Buckets) == 0 {
-		fmt.Println("You don't have any buckets!")
-	} else {
-		for _, bucket := range result.Buckets {
-			fmt.Printf("\t%v\n", *bucket.Name)
-		}
+
+	for _, bucket := range result.Buckets {
+		buckets = append(buckets, *bucket.Name)
 	}
+
+	return buckets, nil
 }
 
-func (s3Client *S3Client) ListBucketContent(bucketName string) {
-	objects, err := s3Client.Client.ListObjects(context.Background(), &s3.ListObjectsInput{
+func (s3Client *S3Client) ListBucketContent(bucketName string) ([]string, error) {
+	objects := []string{}
+
+	objs, err := s3Client.Client.ListObjects(context.Background(), &s3.ListObjectsInput{
 		Bucket: aws.String(bucketName),
 	})
 	if err != nil {
-		panic(err)
+		return objects, err
 	}
-	log.Printf("Found %v objects.\n", len(objects.Contents))
-	// var objKeys []string
-	for _, object := range objects.Contents {
-		// objKeys = append(objKeys, *object.Key)
-		log.Printf("\t%v\n", *object.Key)
+
+	for _, object := range objs.Contents {
+		objects = append(objects, *object.Key)
 	}
+
+	return objects, nil
 }
 
 func (s3Client *S3Client) DeleteBucket(bucketName string) error {
 	_, err := s3Client.Client.DeleteBucket(context.TODO(), &s3.DeleteBucketInput{
 		Bucket: aws.String(bucketName)})
-	if err != nil {
-		log.Printf("Couldn't delete bucket %v. Error: %v\n", bucketName, err)
-	}
 	return err
 }
 
 // For large files, use github.com/aws/aws-sdk-go-v2/feature/s3/manager.NewUploader
-func (s3Client *S3Client) StoreData(bucketName string, objectKey string, fileName string) error {
+func (s3Client *S3Client) StoreObject(bucketName string, objectKey string, fileName string) error {
 	file, err := os.Open(fileName)
 	if err != nil {
-		log.Printf("Couldn't open file %v to upload. Error: %v\n", fileName, err)
-	} else {
-		defer file.Close()
-		_, err = s3Client.Client.PutObject(context.TODO(), &s3.PutObjectInput{
-			Bucket: aws.String(bucketName),
-			Key:    aws.String(objectKey),
-			Body:   file,
-		})
-		if err != nil {
-			log.Printf("Couldn't upload file %v to %v:%v. Error: %v\n",
-				fileName, bucketName, objectKey, err)
-		}
+		return err
 	}
+	defer file.Close()
 
+	_, err = s3Client.Client.PutObject(context.TODO(), &s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(objectKey),
+		Body:   file,
+	})
 	return err
 }
 
 // For large files, use github.com/aws/aws-sdk-go-v2/feature/s3/manager.NewDownloader
 // TODO: return []byte instead if writing to file
-func (s3Client *S3Client) RetrieveData(bucketName string, objectKey string, fileName string) error {
+func (s3Client *S3Client) RetrieveObject(bucketName string, objectKey string, fileName string) error {
 	result, err := s3Client.Client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(objectKey),
 	})
 	if err != nil {
-		log.Printf("Couldn't get object %v:%v. Error: %v\n", bucketName, objectKey, err)
 		return err
 	}
 	defer result.Body.Close()
+
 	file, err := os.Create(fileName)
 	if err != nil {
-		log.Printf("Couldn't create file %v. Error: %v\n", fileName, err)
 		return err
 	}
 	defer file.Close()
+
 	body, err := io.ReadAll(result.Body)
 	if err != nil {
-		log.Printf("Couldn't read object body from %v. Error: %v\n", objectKey, err)
+		return err
 	}
+
 	_, err = file.Write(body)
 	return err
 }
 
-func (s3Client *S3Client) DeleteData(bucketName string, objectKeys []string) error {
+func (s3Client *S3Client) DeleteObject(bucketName string, objectKeys []string) error {
 	var objectIds []types.ObjectIdentifier
 	for _, key := range objectKeys {
 		objectIds = append(objectIds, types.ObjectIdentifier{Key: aws.String(key)})
@@ -151,10 +150,6 @@ func (s3Client *S3Client) DeleteData(bucketName string, objectKeys []string) err
 		Bucket: aws.String(bucketName),
 		Delete: &types.Delete{Objects: objectIds},
 	})
-	if err != nil {
-		log.Printf("Couldn't delete objects from bucket %v. Error: %v\n", bucketName, err)
-		// } else {
-		// 	log.Printf("Deleted %v objects.\n", len(output.Deleted))
-	}
+
 	return err
 }

@@ -25,26 +25,26 @@ auth:
 */
 
 type CloudStorageClient struct {
-	Client          *storage.Client
-	projectId       string
-	defaultLocation string
+	Client    *storage.Client
+	projectId string
+	location  string
 }
 
-func NewCloudStorageClient(defaultProjectId string) *CloudStorageClient {
+func NewCloudStorageClient(projectId string) *CloudStorageClient {
 	client, err := storage.NewClient(context.Background())
-
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	return &CloudStorageClient{
-		Client:          client,
-		projectId:       defaultProjectId,
-		defaultLocation: "US-CENTRAL1",
+		Client:    client,
+		projectId: projectId,
+		location:  "US-CENTRAL1",
 	}
 }
 
 func (gcpClient *CloudStorageClient) WithDefaultLocation(location string) *CloudStorageClient {
-	gcpClient.defaultLocation = location
+	gcpClient.location = location
 	return gcpClient
 }
 
@@ -54,18 +54,20 @@ func (gcpClient *CloudStorageClient) WithDefaultLocation(location string) *Cloud
 func (gcpClient *CloudStorageClient) CreateBucket(bucketName string) error {
 	bkt := gcpClient.Client.Bucket(bucketName)
 	attrLocation := &storage.BucketAttrs{
-		Location: gcpClient.defaultLocation,
+		Location: gcpClient.location,
 	}
+
 	err := bkt.Create(context.Background(), gcpClient.projectId, attrLocation)
 	if err != nil {
-		log.Fatal(err)
 		return err
 	}
-	log.Printf("Bucket %v created\n", bucketName)
+
 	return nil
 }
 
-func (gcpClient *CloudStorageClient) ListBuckets() {
+func (gcpClient *CloudStorageClient) ListBuckets() ([]string, error) {
+	buckets := []string{}
+
 	it := gcpClient.Client.Buckets(context.Background(), gcpClient.projectId)
 	for {
 		attrs, err := it.Next()
@@ -73,13 +75,17 @@ func (gcpClient *CloudStorageClient) ListBuckets() {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			return buckets, err
 		}
-		fmt.Println(attrs.Name, attrs.Location)
+		buckets = append(buckets, attrs.Name)
 	}
+
+	return buckets, nil
 }
 
-func (gcpClient *CloudStorageClient) ListBucketContent(bucketName string) {
+func (gcpClient *CloudStorageClient) ListBucketContent(bucketName string) ([]string, error) {
+	objects := []string{}
+
 	bkt := gcpClient.Client.Bucket(bucketName)
 	it := bkt.Objects(context.Background(), nil)
 	for {
@@ -88,20 +94,22 @@ func (gcpClient *CloudStorageClient) ListBucketContent(bucketName string) {
 			break
 		}
 		if err != nil {
-			log.Fatal(err)
+			return objects, err
 		}
-		fmt.Println(attrs.Name, attrs.ContentType)
+		objects = append(objects, attrs.Name)
 	}
+
+	return objects, nil
 }
 
 func (gcpClient *CloudStorageClient) DeleteBucket(bucketName string) error {
 	bkt := gcpClient.Client.Bucket(bucketName)
+
 	err := bkt.Delete(context.Background())
 	if err != nil {
-		log.Fatal(err)
 		return err
 	}
-	log.Printf("Bucket %v deleted\n", bucketName)
+
 	return nil
 }
 
@@ -110,11 +118,10 @@ func (gcpClient *CloudStorageClient) DeleteBucket(bucketName string) error {
 // ########################
 
 // uploadFile uploads an object.
-func (gcpClient *CloudStorageClient) StoreData(bucketName string, objectKey string, fileName string) error {
-	// Open local file.
+func (gcpClient *CloudStorageClient) StoreObject(bucketName string, objectKey string, fileName string) error {
 	f, err := os.Open(fileName)
 	if err != nil {
-		return fmt.Errorf("os.Open: %w", err)
+		return err
 	}
 	defer f.Close()
 
@@ -140,60 +147,49 @@ func (gcpClient *CloudStorageClient) StoreData(bucketName string, objectKey stri
 	// Upload an object with storage.Writer.
 	wc := o.NewWriter(ctx)
 	if _, err = io.Copy(wc, f); err != nil {
-		return fmt.Errorf("io.Copy: %w", err)
+		return err
 	}
 	if err := wc.Close(); err != nil {
-		return fmt.Errorf("Writer.Close: %w", err)
+		return err
 	}
 
-	log.Printf("Data stored in %s/%s\n", bucketName, objectKey)
 	return nil
 }
 
 // downloadFile downloads an object to a file.
-func (gcpClient *CloudStorageClient) RetrieveData(bucketName string, objectKey string, fileName string) error {
-	ctx := context.Background()
-	// client, err := storage.NewClient(ctx)
-	// if err != nil {
-	// 	return fmt.Errorf("storage.NewClient: %w", err)
-	// }
-	// defer client.Close()
-
-	ctx, cancel := context.WithTimeout(ctx, time.Second*50)
+func (gcpClient *CloudStorageClient) RetrieveObject(bucketName string, objectKey string, fileName string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
 	defer cancel()
 
 	f, err := os.Create(fileName)
 	if err != nil {
-		return fmt.Errorf("os.Create: %w", err)
+		return err
 	}
 
 	rc, err := gcpClient.Client.Bucket(bucketName).Object(objectKey).NewReader(ctx)
 	if err != nil {
-		return fmt.Errorf("Object(%q).NewReader: %w", objectKey, err)
+		return err
 	}
 	defer rc.Close()
 
 	if _, err := io.Copy(f, rc); err != nil {
-		return fmt.Errorf("io.Copy: %w", err)
+		return err
 	}
 
 	if err = f.Close(); err != nil {
-		return fmt.Errorf("f.Close: %w", err)
+		return err
 	}
-
-	fmt.Printf("Data from %s/%s downloaded to local file %s\n", bucketName, objectKey, fileName)
 
 	return nil
 
 }
 
-func (gcpClient *CloudStorageClient) DeleteData(bucketName string, objectKeys []string) error {
+func (gcpClient *CloudStorageClient) DeleteObject(bucketName string, objectKeys []string) error {
 	for _, objectKey := range objectKeys {
 		err := gcpClient.Client.Bucket(bucketName).Object(objectKey).Delete(context.Background())
 		if err != nil {
-			return fmt.Errorf("Object(%q).Delete: %w", objectKey, err)
+			return fmt.Errorf("DeleteObject(%w)", err)
 		}
-		log.Printf("Data deleted from %s/%s\n", bucketName, objectKey)
 	}
 	return nil
 }

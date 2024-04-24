@@ -34,7 +34,6 @@ auth:
 type BlobStorageClient struct {
 	Client         *azblob.Client
 	storageAccount string
-	// defaultLocation string
 }
 
 func NewBlobStorageClient(storageAccount string) *BlobStorageClient {
@@ -53,7 +52,6 @@ func NewBlobStorageClient(storageAccount string) *BlobStorageClient {
 	return &BlobStorageClient{
 		Client:         client,
 		storageAccount: storageAccount,
-		// defaultLocation: "US-CENTRAL1",
 	}
 
 	// alternatively: use client factory
@@ -75,30 +73,30 @@ func NewBlobStorageClient(storageAccount string) *BlobStorageClient {
 
 func (az *BlobStorageClient) CreateBucket(bucketName string) error {
 	_, err := az.Client.CreateContainer(context.Background(), bucketName, nil)
-	if err != nil {
-		log.Printf("Couldn't create bucket %v in storage account %s. Error: %v\n",
-			bucketName, az.storageAccount, err)
-	}
 	return err
 }
 
-func (az *BlobStorageClient) ListBuckets() {
-	pager := az.Client.NewListContainersPager(&azblob.ListContainersOptions{})
+func (az *BlobStorageClient) ListBuckets() ([]string, error) {
+	buckets := []string{}
 
+	pager := az.Client.NewListContainersPager(&azblob.ListContainersOptions{})
 	for pager.More() {
 		resp, err := pager.NextPage(context.TODO())
 		if err != nil {
-			log.Fatal(err)
+			return buckets, err
 		}
 
 		for _, container := range resp.ContainerItems {
-			fmt.Println(*container.Name)
+			buckets = append(buckets, *container.Name)
 		}
 	}
+
+	return buckets, nil
 }
 
-func (az *BlobStorageClient) ListBucketContent(bucketName string) {
-	// List the blobs in the container
+func (az *BlobStorageClient) ListBucketContent(bucketName string) ([]string, error) {
+	objects := []string{}
+
 	pager := az.Client.NewListBlobsFlatPager(bucketName, &azblob.ListBlobsFlatOptions{
 		Include: azblob.ListBlobsInclude{Snapshots: true, Versions: true},
 	})
@@ -106,79 +104,74 @@ func (az *BlobStorageClient) ListBucketContent(bucketName string) {
 	for pager.More() {
 		resp, err := pager.NextPage(context.TODO())
 		if err != nil {
-			log.Fatal(err)
+			return objects, err
 		}
 
 		for _, blob := range resp.Segment.BlobItems {
-			fmt.Println(*blob.Name)
+			objects = append(objects, *blob.Name)
 		}
 	}
+
+	return objects, nil
 }
 
 func (az *BlobStorageClient) DeleteBucket(bucketName string) error {
 	_, err := az.Client.DeleteContainer(context.TODO(), bucketName, nil)
-	if err != nil {
-		log.Printf("Couldn't delete bucket %v. Error: %v\n", bucketName, err)
-	}
 	return err
 }
 
-// For large files, use github.com/aws/aws-sdk-go-v2/feature/s3/manager.NewUploader
-func (az *BlobStorageClient) StoreData(bucketName string, objectKey string, fileName string) error {
+func (az *BlobStorageClient) StoreObject(bucketName string, objectKey string, fileName string) error {
 	data, err := os.ReadFile(fileName)
 	if err != nil {
-		log.Printf("Couldn't open file %v to upload. Error: %v\n", fileName, err)
-	} else {
-		_, err = az.Client.UploadBuffer(context.Background(), bucketName, objectKey, data, nil) // &azblob.UploadBufferOptions{}
-		if err != nil {
-			log.Printf("Couldn't upload file %v to %v:%v. Error: %v\n",
-				fileName, bucketName, objectKey, err)
-		}
+		return err
 	}
 
+	_, err = az.Client.UploadBuffer(context.Background(), bucketName, objectKey, data, nil)
 	return err
 }
 
 // TODO: return []byte instead if writing to file
-func (az *BlobStorageClient) RetrieveData(bucketName string, objectKey string, fileName string) error {
+func (az *BlobStorageClient) RetrieveObject(bucketName string, objectKey string, fileName string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
 	defer cancel()
 
 	ds, err := az.Client.DownloadStream(ctx, bucketName, objectKey, nil)
 	if err != nil {
-		return fmt.Errorf("DownloadStream(%s): %w", objectKey, err)
+		return err
 	}
 
 	retryReader := ds.NewRetryReader(ctx, &azblob.RetryReaderOptions{})
 	err = retryReader.Close()
 	if err != nil {
-		return fmt.Errorf("DownloadStream(%s).NewRetryReader(): %w", objectKey, err)
+		return err
 	}
 
 	file, err := os.Create(fileName)
 	if err != nil {
-		log.Printf("Couldn't create file %v. Error: %v\n", fileName, err)
 		return err
 	}
 	defer file.Close()
+
 	body, err := io.ReadAll(retryReader)
 	if err != nil {
-		log.Printf("Couldn't read object body from %v. Error: %v\n", objectKey, err)
+		return err
 	}
+
 	_, err = file.Write(body)
 	return err
 }
 
-func (az *BlobStorageClient) DeleteData(bucketName string, objectKeys []string) error {
+func (az *BlobStorageClient) DeleteObject(bucketName string, objectKeys []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*50)
 	defer cancel()
+
 	for _, objectKey := range objectKeys {
 		_, err := az.Client.DeleteBlob(ctx, bucketName, objectKey, nil)
 		if err != nil {
-			return fmt.Errorf("DeleteBlob(%s): %w", objectKey, err)
+			return fmt.Errorf("DeleteObject(%w)", err)
 		}
-		log.Printf("Data deleted from %s/%s\n", bucketName, objectKey)
 	}
+
 	return nil
 }
 

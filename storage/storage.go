@@ -2,18 +2,19 @@ package storage
 
 import (
 	"github.com/pbreedt/cloud-connect/storage/aws"
+	"github.com/pbreedt/cloud-connect/storage/azure"
 	"github.com/pbreedt/cloud-connect/storage/gcp"
 )
 
 type Storage interface {
 	CreateBucket(bucketName string) error
-	ListBuckets()
-	ListBucketContent(bucketName string)
+	ListBuckets() ([]string, error)
+	ListBucketContent(bucketName string) ([]string, error)
 	DeleteBucket(bucketName string) error
 
-	StoreData(bucketName string, objectKey string, fileName string) error
-	RetrieveData(bucketName string, objectKey string, fileName string) error
-	DeleteData(bucketName string, objectKeys []string) error
+	StoreObject(bucketName string, objectKey string, fileName string) error
+	RetrieveObject(bucketName string, objectKey string, fileName string) error
+	DeleteObject(bucketName string, objectKeys []string) error
 }
 
 type StorageType string
@@ -37,8 +38,8 @@ func NewStorage(opts Options) Storage {
 		return aws.NewS3Client()
 	case TypeGCP:
 		return gcp.NewCloudStorageClient(opts.ProjectId).WithDefaultLocation(opts.Location)
-	// case TypeAzure:
-	// 	return azure.NewBlobStorageClient(opts.ProjectId)
+	case TypeAzure:
+		return azure.NewBlobStorageClient(opts.ProjectId)
 	default:
 		return nil
 	}

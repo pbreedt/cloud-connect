@@ -7,7 +7,10 @@ import (
 
 type Storage interface {
 	CreateBucket(bucketName string) error
+	ListBuckets()
+	ListBucketContent(bucketName string)
 	DeleteBucket(bucketName string) error
+
 	StoreData(bucketName string, objectKey string, fileName string) error
 	RetrieveData(bucketName string, objectKey string, fileName string) error
 	DeleteData(bucketName string, objectKeys []string) error

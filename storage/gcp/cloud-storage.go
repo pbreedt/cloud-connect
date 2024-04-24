@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 )
 
 /*
@@ -47,6 +48,9 @@ func (gcpClient *CloudStorageClient) WithDefaultLocation(location string) *Cloud
 	return gcpClient
 }
 
+// ################
+// Bucket functions
+// ################
 func (gcpClient *CloudStorageClient) CreateBucket(bucketName string) error {
 	bkt := gcpClient.Client.Bucket(bucketName)
 	attrLocation := &storage.BucketAttrs{
@@ -61,6 +65,35 @@ func (gcpClient *CloudStorageClient) CreateBucket(bucketName string) error {
 	return nil
 }
 
+func (gcpClient *CloudStorageClient) ListBuckets() {
+	it := gcpClient.Client.Buckets(context.Background(), gcpClient.projectId)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(attrs.Name, attrs.Location)
+	}
+}
+
+func (gcpClient *CloudStorageClient) ListBucketContent(bucketName string) {
+	bkt := gcpClient.Client.Bucket(bucketName)
+	it := bkt.Objects(context.Background(), nil)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(attrs.Name, attrs.ContentType)
+	}
+}
+
 func (gcpClient *CloudStorageClient) DeleteBucket(bucketName string) error {
 	bkt := gcpClient.Client.Bucket(bucketName)
 	err := bkt.Delete(context.Background())
@@ -71,6 +104,10 @@ func (gcpClient *CloudStorageClient) DeleteBucket(bucketName string) error {
 	log.Printf("Bucket %v deleted\n", bucketName)
 	return nil
 }
+
+// ########################
+// Bucket content functions
+// ########################
 
 // uploadFile uploads an object.
 func (gcpClient *CloudStorageClient) StoreData(bucketName string, objectKey string, fileName string) error {
@@ -160,32 +197,3 @@ func (gcpClient *CloudStorageClient) DeleteData(bucketName string, objectKeys []
 	}
 	return nil
 }
-
-// func (gcpClient *GCPClient) ListBucketContents(bucketName string) {
-// 	bkt := gcpClient.Client.Bucket(bucketName)
-// 	it := bkt.Objects(context.Background(), nil)
-// 	for {
-// 		attrs, err := it.Next()
-// 		if err == iterator.Done {
-// 			break
-// 		}
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
-// 		fmt.Println(attrs.Name, attrs.ContentType)
-// 	}
-// }
-
-// func (gcpClient *GCPClient) ListBuckets(prjId string) {
-// 	it := gcpClient.Client.Buckets(context.Background(), prjId)
-// 	for {
-// 		attrs, err := it.Next()
-// 		if err == iterator.Done {
-// 			break
-// 		}
-// 		if err != nil {
-// 			log.Fatal(err)
-// 		}
-// 		fmt.Println(attrs.Name, attrs.Location)
-// 	}
-// }

@@ -2,6 +2,7 @@ package aws
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -41,18 +42,48 @@ func NewS3Client() *S3Client {
 	return &S3Client{Client: s3.NewFromConfig(cfg)}
 }
 
-func (s3Client *S3Client) CreateBucket(name string) error {
+func (s3Client *S3Client) CreateBucket(bucketName string) error {
 	_, err := s3Client.Client.CreateBucket(context.TODO(), &s3.CreateBucketInput{
-		Bucket: aws.String(name),
+		Bucket: aws.String(bucketName),
 		// CreateBucketConfiguration: &types.CreateBucketConfiguration{
 		// 	LocationConstraint: types.BucketLocationConstraint(region),
 		// },
 	})
 	if err != nil {
 		log.Printf("Couldn't create bucket %v in Region %v. Error: %v\n",
-			name, s3Client.Client.Options().Region, err)
+			bucketName, s3Client.Client.Options().Region, err)
 	}
 	return err
+}
+
+func (s3Client *S3Client) ListBuckets() {
+	result, err := s3Client.Client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
+	if err != nil {
+		fmt.Printf("Couldn't list buckets for your account. Error: %v\n", err)
+		return
+	}
+	if len(result.Buckets) == 0 {
+		fmt.Println("You don't have any buckets!")
+	} else {
+		for _, bucket := range result.Buckets {
+			fmt.Printf("\t%v\n", *bucket.Name)
+		}
+	}
+}
+
+func (s3Client *S3Client) ListBucketContent(bucketName string) {
+	objects, err := s3Client.Client.ListObjects(context.Background(), &s3.ListObjectsInput{
+		Bucket: aws.String(bucketName),
+	})
+	if err != nil {
+		panic(err)
+	}
+	log.Printf("Found %v objects.\n", len(objects.Contents))
+	// var objKeys []string
+	for _, object := range objects.Contents {
+		// objKeys = append(objKeys, *object.Key)
+		log.Printf("\t%v\n", *object.Key)
+	}
 }
 
 func (s3Client *S3Client) DeleteBucket(bucketName string) error {

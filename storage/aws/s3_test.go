@@ -31,6 +31,18 @@ func TestS3Upload(t *testing.T) {
 	}
 }
 
+func TestS3ListBuckets(t *testing.T) {
+	s3c := NewS3Client()
+	t.Logf("Buckets list :) %s\n", s3c.Client.Options().AppID)
+	s3c.ListBuckets()
+}
+
+func TestS3ListBucketContent(t *testing.T) {
+	s3c := NewS3Client()
+	t.Logf("Content of bucket: '%s'\n", awsBucketName)
+	s3c.ListBucketContent(awsBucketName)
+}
+
 func TestS3Download(t *testing.T) {
 	s3c := NewS3Client()
 

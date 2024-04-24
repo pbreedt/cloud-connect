@@ -82,6 +82,39 @@ func (az *BlobStorageClient) CreateBucket(bucketName string) error {
 	return err
 }
 
+func (az *BlobStorageClient) ListBuckets() {
+	pager := az.Client.NewListContainersPager(&azblob.ListContainersOptions{})
+
+	for pager.More() {
+		resp, err := pager.NextPage(context.TODO())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, container := range resp.ContainerItems {
+			fmt.Println(*container.Name)
+		}
+	}
+}
+
+func (az *BlobStorageClient) ListBucketContent(bucketName string) {
+	// List the blobs in the container
+	pager := az.Client.NewListBlobsFlatPager(bucketName, &azblob.ListBlobsFlatOptions{
+		Include: azblob.ListBlobsInclude{Snapshots: true, Versions: true},
+	})
+
+	for pager.More() {
+		resp, err := pager.NextPage(context.TODO())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, blob := range resp.Segment.BlobItems {
+			fmt.Println(*blob.Name)
+		}
+	}
+}
+
 func (az *BlobStorageClient) DeleteBucket(bucketName string) error {
 	_, err := az.Client.DeleteContainer(context.TODO(), bucketName, nil)
 	if err != nil {
@@ -147,24 +180,6 @@ func (az *BlobStorageClient) DeleteData(bucketName string, objectKeys []string) 
 		log.Printf("Data deleted from %s/%s\n", bucketName, objectKey)
 	}
 	return nil
-}
-
-func (az *BlobStorageClient) ListBucketContents(bucketName string) {
-	// List the blobs in the container
-	pager := az.Client.NewListBlobsFlatPager(bucketName, &azblob.ListBlobsFlatOptions{
-		Include: azblob.ListBlobsInclude{Snapshots: true, Versions: true},
-	})
-
-	for pager.More() {
-		resp, err := pager.NextPage(context.TODO())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, blob := range resp.Segment.BlobItems {
-			fmt.Println(*blob.Name)
-		}
-	}
 }
 
 /*

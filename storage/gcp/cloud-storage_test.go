@@ -17,7 +17,7 @@ func init() {
 	gcpDefaultProjectId = "the-cloud-bootcamp-pfb"
 }
 
-func TestGCPCreateBucket(t *testing.T) {
+func TestCSCreateBucket(t *testing.T) {
 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.CreateBucket(gcpBucketName)
@@ -26,7 +26,7 @@ func TestGCPCreateBucket(t *testing.T) {
 	}
 }
 
-func TestGCPUpload(t *testing.T) {
+func TestCSUpload(t *testing.T) {
 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.StoreData(gcpBucketName, "test-object", "../test_data/testfile.txt")
@@ -35,7 +35,19 @@ func TestGCPUpload(t *testing.T) {
 	}
 }
 
-func TestGCPDownload(t *testing.T) {
+func TestCSListBuckets(t *testing.T) {
+	gcp := NewCloudStorageClient(gcpDefaultProjectId)
+	t.Logf("Buckets list :) %s\n", gcpDefaultProjectId)
+	gcp.ListBuckets()
+}
+
+func TestCSListBucketContent(t *testing.T) {
+	gcp := NewCloudStorageClient(gcpDefaultProjectId)
+	t.Logf("Content of bucket: '%s'\n", gcpBucketName)
+	gcp.ListBucketContent(gcpBucketName)
+}
+
+func TestCSDownload(t *testing.T) {
 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.RetrieveData(gcpBucketName, "test-object", "../test_data/gcp_testfile_download.txt")
@@ -49,7 +61,7 @@ func TestGCPDownload(t *testing.T) {
 	}
 }
 
-func TestGCPDelete(t *testing.T) {
+func TestCSDelete(t *testing.T) {
 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.DeleteData(gcpBucketName, []string{"test-object"})
@@ -58,7 +70,7 @@ func TestGCPDelete(t *testing.T) {
 	}
 }
 
-func TestGCPDeleteBucket(t *testing.T) {
+func TestCSDeleteBucket(t *testing.T) {
 	gcp := NewCloudStorageClient(gcpDefaultProjectId)
 
 	err := gcp.DeleteBucket(gcpBucketName)
@@ -66,15 +78,3 @@ func TestGCPDeleteBucket(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-// func TestGCPList(t *testing.T) {
-// 	gcp := NewGCPClient()
-// 	t.Logf("Bucket name: '%v'\n", gcpBucketName)
-// 	gcp.ListBucketContents(gcpBucketName)
-// }
-
-// func TestGCPListBuckets(t *testing.T) {
-// 	gcp := NewGCPClient()
-// 	t.Logf("Bucket name: '%v'\n", gcpBucketName)
-// 	gcp.ListBuckets("the-cloud-bootcamp-pfb")
-// }

@@ -17,7 +17,7 @@ func init() {
 	azStorageAccount = "cs210032003763ea5a8"
 }
 
-func TestCreateBucket(t *testing.T) {
+func TestBSCreateBucket(t *testing.T) {
 	az := NewBlobStorageClient(azStorageAccount)
 	t.Logf("Blob storage client created: '%v'\n", az)
 	err := az.CreateBucket(azBucketName)
@@ -26,7 +26,7 @@ func TestCreateBucket(t *testing.T) {
 	}
 }
 
-func TestUpload(t *testing.T) {
+func TestBSUpload(t *testing.T) {
 	gcp := NewBlobStorageClient(azStorageAccount)
 
 	err := gcp.StoreData(azBucketName, "test-object", "../test_data/testfile.txt")
@@ -35,13 +35,19 @@ func TestUpload(t *testing.T) {
 	}
 }
 
-func TestListBucketContent(t *testing.T) {
+func TestBSListBuckets(t *testing.T) {
 	az := NewBlobStorageClient(azStorageAccount)
-	t.Logf("Content of bucket: '%s'\n", azBucketName)
-	az.ListBucketContents(azBucketName)
+	t.Logf("Buckets list :) %s\n", azStorageAccount)
+	az.ListBuckets()
 }
 
-func TestDownload(t *testing.T) {
+func TestBSListBucketContent(t *testing.T) {
+	az := NewBlobStorageClient(azStorageAccount)
+	t.Logf("Content of bucket: '%s'\n", azBucketName)
+	az.ListBucketContent(azBucketName)
+}
+
+func TestBSDownload(t *testing.T) {
 	gcp := NewBlobStorageClient(azStorageAccount)
 
 	err := gcp.RetrieveData(azBucketName, "test-object", "../test_data/az_testfile_download.txt")
@@ -55,7 +61,7 @@ func TestDownload(t *testing.T) {
 	}
 }
 
-func TestDelete(t *testing.T) {
+func TestBSDelete(t *testing.T) {
 	gcp := NewBlobStorageClient(azStorageAccount)
 
 	err := gcp.DeleteData(azBucketName, []string{"test-object"})
@@ -64,7 +70,7 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-func TestDeleteBucket(t *testing.T) {
+func TestBSDeleteBucket(t *testing.T) {
 	az := NewBlobStorageClient(azStorageAccount)
 	t.Logf("Blob storage client created: '%v'\n", az)
 	err := az.DeleteBucket(azBucketName)
@@ -72,9 +78,3 @@ func TestDeleteBucket(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-// func TestListBuckets(t *testing.T) {
-// 	az := NewBlobStorageClient(azStorageAccount)
-// 	t.Logf("Buckets list :) %s\n", azBucketName)
-// 	az.ListBuckets(azStorageAccount)
-// }

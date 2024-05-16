@@ -2,7 +2,7 @@
 > A package to wrap services from different cloud providers in a common, simplified interface
 
 ## General info
-This main purpose of this package was to explore the different SDK's of AWS, GCP & Azure  
+The main purpose of this package was to explore the different SDK's of AWS, GCP & Azure  
 
 ## Technologies
 * Go - version 1.21.5
